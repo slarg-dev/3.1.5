@@ -59,6 +59,8 @@ function getAllUsers() {
 }
 
 function _appendUserRow(user) {
+    console.log(user.id)
+    console.log(user.roles)
     usersTableId
         .append($('<tr class="border-top bg-light">').attr('id', 'userRow[' + user.id + ']')
             .append($('<td>').attr('id', 'userData[' + user.id + '][id]').text(user.id))
@@ -69,17 +71,25 @@ function _appendUserRow(user) {
             .append($('<td>').attr('id', 'userData[' + user.id + '][roles]').text(user.roles.map(role => role.name)))
             .append($('<td>').append($('<button class="btn btn-sm btn-info">')
                 .click(() => {
-                    loadUserAndShowModalForm(user.id);
+                    updateUser(user.id);
                 }).text('Edit')))
             .append($('<td>').append($('<button class="btn btn-sm btn-danger">')
                 .click(() => {
-                    loadUserAndShowModalForm(user.id, false);
+                    deleteUser(user.id);
                 }).text('Delete')))
         );
 }
 
 function _eraseUserModalForm() {
+    userFormId.find('#id').val(id);
+    userFormId.find('#firstName').val(user.firstName);
+    userFormId.find('#lastName').val(user.lastName);
+    userFormId.find('#age').val(user.age);
+    userFormId.find('#email').val(user.email);
+    userFormId.find('#password').val('');
+    console.log(userFormId.find('.invalid-feedback'));
     userFormId.find('.invalid-feedback').remove();
+    userFormId.find('#id').removeClass('is-invalid')
     userFormId.find('#firstName').removeClass('is-invalid');
     userFormId.find('#email').removeClass('is-invalid');
     userFormId.find('#password').removeClass('is-invalid');
@@ -96,66 +106,65 @@ function _setReadonlyAttr(value = true) {
 }
 
 function updateUser(id) {
-    _eraseUserModalForm();
 
+    userFormId.modal('show');
+    console.log(userFormId.find("#action"))
+    _eraseUserModalForm();
     let headers = new Headers();
+    console.log(userFormId.find("#roles").val())
     headers.append('Content-Type', 'application/json; charset=utf-8');
-    let user = {
-        'id': parseInt(userFormId.find('#id').val()),
-        'firstName': userFormId.find('#firstName').val(),
-        'lastName': userFormId.find('#lastName').val(),
-        'age': userFormId.find('#age').val(),
-        'email': userFormId.find('#email').val(),
-        'password': userFormId.find('#password').val(),
-        'roles': userFormId.find('#roles').val().map(roleId => parseInt(roleId))
-    };
     let request = new Request('/api/users/', {
         method: 'PUT',
         headers: headers,
         body: JSON.stringify(user)
     });
+    userFormId.find("#close").onclick(() =>{
+        userFormId._hideModal()
+    })
+    userFormId.find("#action").onclick(() =>{
+        fetch(request)
+            .then(function (response) {
+                if (response.status === 404) {
+                    response.text().then((value) => console.warn("Error message: " + value));
+                    userFormId.modal('hide');
+                    return false;
+                }
 
-    fetch(request)
-        .then(function (response) {
-            if (response.status === 404) {
-                response.text().then((value) => console.warn("Error message: " + value));
-                userFormId.modal('hide');
-                return false;
-            }
+                response.json().then(function (userData) {
+                    console.log(userData);
 
-            response.json().then(function (userData) {
-                console.log(userData);
-
-                if (response.status === 409) {
-                    userData.fieldErrors.forEach(error => {
-                        userFormId.find('#' + error.field)
+                    if (response.status === 409) {
+                        userData.fieldErrors.forEach(error => {
+                            userFormId.find('#' + error.field)
+                                .addClass('is-invalid')
+                                .parent().append($('<div class="invalid-feedback">').text(error.defaultMessage));
+                        });
+                        console.warn('Error: ' + userData.message);
+                        return false;
+                    }
+                    if (response.status === 400) {
+                        userFormId.find('#email')
                             .addClass('is-invalid')
-                            .parent().append($('<div class="invalid-feedback">').text(error.defaultMessage));
-                    });
-                    console.warn('Error: ' + userData.message);
-                    return false;
-                }
-                if (response.status === 400) {
-                    userFormId.find('#email')
-                        .addClass('is-invalid')
-                        .parent().append($('<div class="invalid-feedback">').text('E-mail must be unique'));
-                    console.warn("Error message: " + userData.message);
-                    return false;
-                }
+                            .parent().append($('<div class="invalid-feedback">').text('E-mail must be unique'));
+                        console.warn("Error message: " + userData.message);
+                        return false;
+                    }
+                    console.log(userData.roles)
+                    $('#userData\\[' + userData.id + '\\]\\[firstName\\]').text(userData.firstName)
+                    $('#userData\\[' + userData.id + '\\]\\[lastName\\]').text(userData.lastName)
+                    $('#userData\\[' + userData.id + '\\]\\[age\\]').text(userData.age)
+                    $('#userData\\[' + userData.id + '\\]\\[email\\]').text(userData.email)
+                    $('#userData\\[' + userData.id + '\\]\\[roles\\]').text(userData.roles.map(role => role.name));
+                    userFormId.modal('hide');
 
-                $('#userData\\[' + userData.id + '\\]\\[firstName\\]').text(userData.firstName)
-                $('#userData\\[' + userData.id + '\\]\\[lastName\\]').text(userData.lastName)
-                $('#userData\\[' + userData.id + '\\]\\[age\\]').text(userData.age)
-                $('#userData\\[' + userData.id + '\\]\\[email\\]').text(userData.email)
-                $('#userData\\[' + userData.id + '\\]\\[roles\\]').text(userData.roles.map(role => role.name));
-                userFormId.modal('hide');
-
-                console.info("User with id = " + id + " was updated");
+                    console.info("User with id = " + id + " was updated");
+                });
+            })
+            .catch(function (err) {
+                console.error('Fetch Error :-S', err);
             });
-        })
-        .catch(function (err) {
-            console.error('Fetch Error :-S', err);
-        });
+    })
+
 }
 
 function loadUserAndShowModalForm(id, editMode = true) {
@@ -221,10 +230,10 @@ function loadUserAndShowModalForm(id, editMode = true) {
 
 function _eraseUserAddForm() {
     userAddFormId.find('.invalid-feedback').remove();
-    userAddFormId.find('#newfirstName').removeClass('is-invalid');
-    userAddFormId.find('#newage').removeClass('is-invalid');
-    userAddFormId.find('#newemail').removeClass('is-invalid');
-    userAddFormId.find('#newpassword').removeClass('is-invalid');
+    userAddFormId.find('newfirstName').removeClass('is-invalid');
+    userAddFormId.find('newage').removeClass('is-invalid');
+    userAddFormId.find('newemail').removeClass('is-invalid');
+    userAddFormId.find('newpassword').removeClass('is-invalid');
 }
 
 function loadUserForInsertForm() {

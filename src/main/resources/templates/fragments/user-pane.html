@@ -21,8 +21,8 @@
                     <td th:text="${user.lastName}"/>
                     <td th:text="${user.age}"/>
                     <td th:text="${user.email}"/>
-                    <td><th:block th:each="role : ${user.getRoles()}">
-                        <span th:text="${role.name}"/>
+                    <td><th:block th:each="roles : ${user.roles}">
+                        <span th:text="${roles.name}"/>
                     </th:block></td>
                 </tr>
                 </tbody>
